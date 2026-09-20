@@ -1,48 +1,74 @@
-1. Install Kafka Python library
+Question 2 — Kafka Topic and Producer (GitHub Codespaces)
 
-Run:
+This guide consolidates the Codespaces commands, Python code, verification steps, and Git commits for the Kafka practical.
 
+Environment: GitHub Codespaces (Linux), Kafka downloaded and run directly (no Docker), Kafka KRaft mode (no separate ZooKeeper terminal).
+
+Project folder: /workspaces/assignment
+
+Kafka folder: /workspaces/assignment/kafka_2.13-4.3.1
+
+Python files (topic.py, Producer.py, consumer.py) belong in the project folder, not inside the Kafka folder.
+
+1. Install and verify the Python library
+
+Run from the Codespaces terminal:
+
+cd /workspaces/assignment
 python -m pip install kafka-python
-
-Check:
-
 python -c "import kafka; print(kafka.__version__)"
-2. Start Kafka
 
-If you're using your existing Windows Kafka setup:
+If the version prints, kafka-python is importable.
 
-Terminal 1 — ZooKeeper
-cd C:\kafka
-bin\windows\zookeeper-server-start.bat config\zookeeper.properties
+Optional Git checkpoint
 
-Keep this terminal open.
+Only commit if you changed or added tracked project files as part of this step. Installing a package alone generally does not create a repository change.
 
-Terminal 2 — Kafka Broker
-cd C:\kafka
-bin\windows\kafka-server-start.bat config\server.properties
+git status
 
-Keep this terminal open.
+If you added/updated a dependency file such as requirements.txt:
 
-Kafka should now be available at:
+git add requirements.txt
+git commit -m "Add kafka-python dependency"
+git push
 
-localhost:9092
-3. topic.py
+2. Start Kafka (no Docker, no ZooKeeper)
 
-Create:
+Kafka was extracted into:
 
-topic.py
+/workspaces/assignment/kafka_2.13-4.3.1
 
-Use:
+Start Kafka in Terminal 1:
+
+cd /workspaces/assignment/kafka_2.13-4.3.1
+bin/kafka-server-start.sh config/server.properties
+
+Keep this terminal open while running the Python scripts. The broker is expected at localhost:9092.
+
+If Kafka storage has not been formatted yet, format it once before the first startup (do not repeat on an existing populated Kafka data directory):
+
+cd /workspaces/assignment/kafka_2.13-4.3.1
+KAFKA_CLUSTER_ID="$(bin/kafka-storage.sh random-uuid)"
+bin/kafka-storage.sh format --standalone -t "$KAFKA_CLUSTER_ID" -c config/server.properties
+
+Use a Java version supported by your Kafka release (Kafka 4.x requires Java 17+).
+
+3. Create topic.py
+
+From the project folder:
+
+cd /workspaces/assignment
+nano topic.py
+
+Paste and save this code (Ctrl+O, Enter, Ctrl+X):
 
 from kafka.admin import KafkaAdminClient, NewTopic
 from kafka.errors import TopicAlreadyExistsError
-
 
 # Connect to Kafka
 admin = KafkaAdminClient(
     bootstrap_servers="localhost:9092"
 )
-
 
 # Create topic
 topic = NewTopic(
@@ -51,361 +77,276 @@ topic = NewTopic(
     replication_factor=1
 )
 
-
 try:
-
-    admin.create_topics(
-        new_topics=[topic]
-    )
-
+    admin.create_topics(new_topics=[topic])
     print("Topic created successfully!")
 
 except TopicAlreadyExistsError:
-
     print("Topic already exists!")
 
+finally:
+    admin.close()
 
-admin.close()
+Run:
 
-The TopicAlreadyExistsError handling is useful because if you run the file a second time, your program won't crash just because the topic already exists.
+python topic.py
 
-4. Producer.py
+Expected output is either:
 
-Create:
+Topic created successfully!
 
-Producer.py
+or:
 
-Use your requested producer:
+Topic already exists!
+
+Both indicate the topic is present.
+
+Git checkpoint — topic step
+
+git status
+git add topic.py
+git commit -m "Create Kafka server_metrics topic"
+git push
+
+If Git reports there is nothing to commit, the file may already be committed. Check git status.
+
+4. Verify the topic
+
+Run Kafka CLI commands from the Kafka folder:
+
+cd /workspaces/assignment/kafka_2.13-4.3.1
+
+bin/kafka-topics.sh --list --bootstrap-server localhost:9092
+
+Confirm server_metrics appears.
+
+Describe the topic:
+
+bin/kafka-topics.sh --describe \
+  --topic server_metrics \
+  --bootstrap-server localhost:9092
+
+5. Create Producer.py
+
+cd /workspaces/assignment
+nano Producer.py
+
+Paste and save:
 
 from kafka import KafkaProducer
 import json
 import time
 
-
 # Create Kafka producer
 producer = KafkaProducer(
-
     bootstrap_servers="localhost:9092",
-
-    value_serializer=lambda x:
-        json.dumps(x).encode("utf-8")
+    value_serializer=lambda x: json.dumps(x).encode("utf-8")
 )
-
 
 # Send 10 messages
 for i in range(10):
-
     message = {
-
         "server_id": f"server{i+1}",
-
         "cpu_usage": 50 + i * 4,
-
         "memory_usage": 60 + i
     }
 
-
-    producer.send(
-        "server_metrics",
-        value=message
-    )
-
-
+    producer.send("server_metrics", value=message)
     print("Sent:", message)
-
     time.sleep(1)
-
 
 # Make sure all messages are sent
 producer.flush()
-
 producer.close()
 
 print("\n10 messages sent successfully!")
 
-This produces:
+Run:
 
-server1  CPU 50
-server2  CPU 54
-server3  CPU 58
-server4  CPU 62
-server5  CPU 66
-server6  CPU 70
-server7  CPU 74
-server8  CPU 78
-server9  CPU 82
-server10 CPU 86
+python Producer.py
 
-So 10 messages are sent.
+Expected: messages for server1 through server10, followed by:
 
-5. consumer.py
+10 messages sent successfully!
 
-Create:
+CPU values range from 50% to 86%, increasing by 4 each message. Memory values range from 60% to 69%, increasing by 1 each message.
 
-consumer.py
+Git checkpoint — producer step
 
-Use:
+git status
+git add Producer.py
+git commit -m "Add Kafka metrics producer"
+git push
+
+6. Create consumer.py (useful for Question 3)
+
+cd /workspaces/assignment
+nano consumer.py
+
+Paste and save:
 
 from kafka import KafkaConsumer
 import json
 
-
 # Create Kafka consumer
 consumer = KafkaConsumer(
-
     "server_metrics",
-
     bootstrap_servers="localhost:9092",
-
     auto_offset_reset="earliest",
-
     enable_auto_commit=True,
-
     group_id="aiops-monitor",
-
-    value_deserializer=lambda value:
-        json.loads(value.decode("utf-8"))
+    value_deserializer=lambda value: json.loads(value.decode("utf-8"))
 )
-
 
 print("Waiting for messages...")
 
-
 # Continuously consume messages
 for message in consumer:
-
     data = message.value
 
     server = data["server_id"]
-
     cpu = data["cpu_usage"]
-
     memory = data["memory_usage"]
 
-
     print("\nReceived:")
-
     print("Server:", server)
-
     print("CPU:", cpu, "%")
-
     print("Memory:", memory, "%")
-
 
     # High CPU detection
     if cpu > 80:
+        print("ALERT: High CPU detected on", server)
 
-        print(
-            "ALERT: High CPU detected on",
-            server
-        )
+Run the consumer in its own terminal:
 
-This consumer is also useful for Question 3, because it already checks:
-
-if cpu > 80:
-6. Execute in the Correct Order
-
-You need three additional terminals after Kafka is running.
-
-Your setup will look like:
-
-Terminal 1
-    ↓
-ZooKeeper
-
-Terminal 2
-    ↓
-Kafka Broker
-
-Terminal 3
-    ↓
-topic.py
-
-Terminal 4
-    ↓
-consumer.py
-
-Terminal 5
-    ↓
-Producer.py
-Terminal 3 — Create Topic
-
-Go to your Python project folder:
-
-cd path\to\aiops_kafka
-
-Run:
-
-python topic.py
-
-Expected:
-
-Topic created successfully!
-
-If you already created it:
-
-Topic already exists!
-
-Both are fine.
-
-7. Verify Topic
-
-Before running the producer, you can verify the topic.
-
-cd C:\kafka
-bin\windows\kafka-topics.bat --list --bootstrap-server localhost:9092
-
-You should see:
-
-server_metrics
-
-You can also check its configuration:
-
-bin\windows\kafka-topics.bat --describe --topic server_metrics --bootstrap-server localhost:9092
-8. Terminal 4 — Start Consumer
-
-Run:
-
+cd /workspaces/assignment
 python consumer.py
 
-You should see:
+Expected:
 
 Waiting for messages...
 
-The consumer will wait for Kafka messages.
+Leave it running. In another terminal, run Producer.py to stream messages to it. The consumer should print alerts for server9 (82%) and server10 (86%).
 
-Do not close this terminal.
+Git checkpoint — consumer step
 
-9. Terminal 5 — Run Producer
+If you are committing each completed step/question:
 
-Run:
+git status
+git add consumer.py
+git commit -m "Add Kafka metrics consumer and CPU alert"
+git push
 
-python Producer.py
+7. Verify published messages with Kafka Console Consumer
 
-Expected:
+Open a new terminal:
 
-Sent: {'server_id': 'server1', 'cpu_usage': 50, 'memory_usage': 60}
+cd /workspaces/assignment/kafka_2.13-4.3.1
 
-Sent: {'server_id': 'server2', 'cpu_usage': 54, 'memory_usage': 61}
+bin/kafka-console-consumer.sh \
+  --topic server_metrics \
+  --from-beginning \
+  --bootstrap-server localhost:9092
 
-Sent: {'server_id': 'server3', 'cpu_usage': 58, 'memory_usage': 62}
+You should see JSON records such as:
 
-...
+{"server_id": "server1", "cpu_usage": 50, "memory_usage": 60}
+{"server_id": "server2", "cpu_usage": 54, "memory_usage": 61}
 
-Until:
+The output continues through server10. Press Ctrl+C to stop the console consumer.
 
-Sent: {'server_id': 'server10', 'cpu_usage': 86, 'memory_usage': 69}
+--from-beginning displays retained messages from the start of the topic. Running the producer again adds another batch of 10 messages.
 
-10 messages sent successfully!
-10. Consumer Output
+8. Commit the Question 2 guide and finish the checkpoint
 
-At the same time, the consumer will receive the messages.
+If this Markdown guide or other Question 2 documentation was edited:
 
-For example:
+cd /workspaces/assignment
+git status
+git add AIOps_Question_2_Kafka_Topic_and_Producer.md
+git commit -m "Document Question 2 Kafka practical"
+git push
 
-Received:
-Server: server1
-CPU: 50 %
-Memory: 60 %
+If you want to commit all remaining changes for this question together, inspect git status first, then stage only the relevant files:
 
-For server9:
+git status
+git add topic.py Producer.py consumer.py AIOps_Question_2_Kafka_Topic_and_Producer.md
+git commit -m "Complete Question 2 Kafka practical"
+git push
 
-Received:
-Server: server9
-CPU: 82 %
-Memory: 68 %
+Do not run both commit patterns blindly—use the one that matches what is still uncommitted. If you already made separate commits for the steps, there may be nothing left to commit.
 
-ALERT: High CPU detected on server9
+Final check:
 
-For server10:
+git status
+git log -5 --oneline
 
-Received:
-Server: server10
-CPU: 86 %
-Memory: 69 %
+A clean working tree means there are no uncommitted changes. A successful git push uploads your commits to GitHub.
 
-ALERT: High CPU detected on server10
+9. Quick command checklist
 
-Because:
+Task
 
-82 > 80
-86 > 80
-11. Verify Published Messages Directly
+Command / action
 
-You can also verify the messages using Kafka's console consumer.
+Go to project
 
-Open another terminal:
+cd /workspaces/assignment
 
-cd C:\kafka
-
-Run:
-
-bin\windows\kafka-console-consumer.bat --topic server_metrics --from-beginning --bootstrap-server localhost:9092
-
-You should see:
-
-{"server_id":"server1","cpu_usage":50,"memory_usage":60}
-{"server_id":"server2","cpu_usage":54,"memory_usage":61}
-{"server_id":"server3","cpu_usage":58,"memory_usage":62}
-{"server_id":"server4","cpu_usage":62,"memory_usage":63}
-{"server_id":"server5","cpu_usage":66,"memory_usage":64}
-{"server_id":"server6","cpu_usage":70,"memory_usage":65}
-{"server_id":"server7","cpu_usage":74,"memory_usage":66}
-{"server_id":"server8","cpu_usage":78,"memory_usage":67}
-{"server_id":"server9","cpu_usage":82,"memory_usage":68}
-{"server_id":"server10","cpu_usage":86,"memory_usage":69}
-
-This directly proves that the producer published the messages to:
-
-server_metrics
-12. Complete Execution Commands
 Install library
+
 python -m pip install kafka-python
-Start ZooKeeper
-cd C:\kafka
-bin\windows\zookeeper-server-start.bat config\zookeeper.properties
+
+Check library
+
+python -c "import kafka; print(kafka.__version__)"
+
 Start Kafka
-cd C:\kafka
-bin\windows\kafka-server-start.bat config\server.properties
+
+cd /workspaces/assignment/kafka_2.13-4.3.1 && bin/kafka-server-start.sh config/server.properties
+
 Create topic
+
 python topic.py
+
 Verify topic
-bin\windows\kafka-topics.bat --list --bootstrap-server localhost:9092
+
+bin/kafka-topics.sh --list --bootstrap-server localhost:9092 (from Kafka folder)
+
 Start consumer
+
 python consumer.py
-Start producer
-python Producer.py
-Verify messages
-bin\windows\kafka-console-consumer.bat --topic server_metrics --from-beginning --bootstrap-server localhost:9092
-13. Final Flow for Question 2
-                  Kafka Cluster
-                       │
-                       ↓
-              localhost:9092
-                       │
-                       ↓
-              ┌────────────────┐
-              │ server_metrics │
-              │     Topic      │
-              └───────┬────────┘
-                      ↑
-                      │
-                Producer.py
-                      │
-              10 JSON messages
-                      │
-                      ↓
-                Consumer.py
-                      │
-                      ↓
-              Display metrics
-Files you need
-topic.py
-Producer.py
-consumer.py
-Most important commands
-python topic.py
-python consumer.py
+
+Send 10 messages
+
 python Producer.py
 
-For the actual Question 2 requirement, topic.py + Producer.py + Kafka console consumer verification are the essential parts. Your consumer.py is useful for the next question and also demonstrates that the published metrics can be consumed.
+Verify records
+
+bin/kafka-console-consumer.sh --topic server_metrics --from-beginning --bootstrap-server localhost:9092 (from Kafka folder)
+
+Check Git
+
+git status
+
+Commit changes
+
+git add <files> && git commit -m "message"
+
+Push commit
+
+git push
+
+Final flow
+
+Kafka broker (KRaft, localhost:9092)
+            ↓
+   server_metrics topic
+            ↑
+       Producer.py
+    (10 JSON messages)
+            ↓
+       consumer.py
+ (display metrics + CPU alerts)
+
+Question 2 essentials: topic.py, Producer.py, Kafka topic verification, and console-consumer verification. consumer.py is also useful for the next question's CPU-alert logic.
