@@ -1,0 +1,596 @@
+# ============================================================
+# Azure AI Studio Copilot Sample
+# Complete Hands-On Setup
+# ============================================================
+#
+# Repository:
+# aistudio-copilot-sample-main
+#
+# Workflow:
+# 1. Python environment
+# 2. Dependencies
+# 3. Azure CLI authentication
+# 4. Environment configuration
+# 5. Build Azure AI Search index
+# 6. Run AI SDK copilot
+# 7. Run LangChain copilot
+# 8. Run Prompt Flow copilot
+# 9. Evaluate
+# 10. Deploy
+# 11. Invoke deployment
+#
+# IMPORTANT:
+# This repository is deprecated and uses older Azure AI SDK
+# preview packages. Do NOT expose your Azure keys publicly.
+# ============================================================
+
+
+# ------------------------------------------------------------
+# STEP 0 — Stop on errors
+# ------------------------------------------------------------
+
+$ErrorActionPreference = "Stop"
+
+Write-Host ""
+Write-Host "============================================="
+Write-Host " Azure AI Studio Copilot Hands-On Setup"
+Write-Host "============================================="
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# STEP 1 — Verify Python
+# ------------------------------------------------------------
+
+Write-Host "STEP 1: Checking Python..."
+Write-Host ""
+
+python --version
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Host ""
+    Write-Host "Python was not found."
+    Write-Host "Install Python first and rerun this script."
+    exit 1
+}
+
+Write-Host ""
+Write-Host "Python detected."
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# STEP 2 — Create virtual environment
+# ------------------------------------------------------------
+
+Write-Host "STEP 2: Creating .venv..."
+
+if (-Not (Test-Path ".venv")) {
+
+    python -m venv .venv
+
+    Write-Host ".venv created."
+
+}
+else {
+
+    Write-Host ".venv already exists."
+
+}
+
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# STEP 3 — Activate virtual environment
+# ------------------------------------------------------------
+
+Write-Host "STEP 3: Activating virtual environment..."
+Write-Host ""
+
+& ".\.venv\Scripts\Activate.ps1"
+
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# STEP 4 — Verify virtual environment
+# ------------------------------------------------------------
+
+Write-Host "STEP 4: Verifying Python environment..."
+Write-Host ""
+
+python --version
+python -c "import sys; print('Python executable:', sys.executable)"
+
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# STEP 5 — Upgrade pip tools
+# ------------------------------------------------------------
+
+Write-Host "STEP 5: Upgrading pip, setuptools and wheel..."
+Write-Host ""
+
+python -m pip install --upgrade pip setuptools wheel
+
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# STEP 6 — Install repository dependencies
+# ------------------------------------------------------------
+
+Write-Host "STEP 6: Installing repository requirements..."
+Write-Host ""
+
+python -m pip install -r requirements.txt
+
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# STEP 7 — Check dependencies
+# ------------------------------------------------------------
+
+Write-Host "STEP 7: Checking installed dependencies..."
+Write-Host ""
+
+python -m pip check
+
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# STEP 8 — Verify important packages
+# ------------------------------------------------------------
+
+Write-Host "STEP 8: Verifying important Python packages..."
+Write-Host ""
+
+python -c "import openai; print('OpenAI package: OK')"
+
+python -c "import azure.search.documents; print('Azure AI Search SDK: OK')"
+
+python -c "import langchain; print('LangChain: OK')"
+
+python -c "import pytest; print('Pytest: OK')"
+
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# STEP 9 — Create .env
+# ------------------------------------------------------------
+
+Write-Host "STEP 9: Creating .env..."
+
+if (-Not (Test-Path ".env")) {
+
+    Copy-Item ".env.sample" ".env"
+
+    Write-Host ".env created from .env.sample."
+
+}
+else {
+
+    Write-Host ".env already exists. It will NOT be overwritten."
+
+}
+
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# STEP 10 — Display environment variables that must be filled
+# ------------------------------------------------------------
+
+Write-Host "================================================"
+Write-Host "STEP 10: Configure Azure environment variables"
+Write-Host "================================================"
+Write-Host ""
+
+Write-Host "Open .env:"
+Write-Host ""
+
+Write-Host "code .env"
+
+Write-Host ""
+
+Write-Host "Required values:"
+Write-Host ""
+
+Write-Host "AZURE_SUBSCRIPTION_ID"
+Write-Host "OPENAI_API_TYPE"
+Write-Host "OPENAI_API_KEY"
+Write-Host "OPENAI_API_BASE"
+Write-Host "OPENAI_API_VERSION"
+Write-Host "AZURE_AI_SEARCH_ENDPOINT"
+Write-Host "AZURE_AI_SEARCH_KEY"
+Write-Host "AZURE_AI_SEARCH_INDEX_NAME"
+Write-Host "AZURE_OPENAI_CHAT_MODEL"
+Write-Host "AZURE_OPENAI_CHAT_DEPLOYMENT"
+Write-Host "AZURE_OPENAI_EVALUATION_MODEL"
+Write-Host "AZURE_OPENAI_EVALUATION_DEPLOYMENT"
+Write-Host "AZURE_OPENAI_EMBEDDING_MODEL"
+Write-Host "AZURE_OPENAI_EMBEDDING_DEPLOYMENT"
+
+Write-Host ""
+
+Write-Host "IMPORTANT:"
+Write-Host "Do not continue until .env contains valid Azure values."
+Write-Host ""
+
+Read-Host "Press ENTER after you have configured .env"
+
+
+# ------------------------------------------------------------
+# STEP 11 — Azure CLI check
+# ------------------------------------------------------------
+
+Write-Host ""
+Write-Host "STEP 11: Checking Azure CLI..."
+Write-Host ""
+
+az version
+
+if ($LASTEXITCODE -ne 0) {
+
+    Write-Host ""
+    Write-Host "Azure CLI is not installed."
+    Write-Host "Install Azure CLI and rerun this script."
+    exit 1
+
+}
+
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# STEP 12 — Azure login
+# ------------------------------------------------------------
+
+Write-Host "STEP 12: Azure login..."
+Write-Host ""
+
+az login
+
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# STEP 13 — Show Azure subscriptions
+# ------------------------------------------------------------
+
+Write-Host "STEP 13: Listing Azure subscriptions..."
+Write-Host ""
+
+az account list --output table
+
+Write-Host ""
+
+Write-Host "Set the correct subscription if necessary:"
+Write-Host ""
+
+Write-Host 'az account set --subscription "YOUR_SUBSCRIPTION_ID"'
+
+Write-Host ""
+
+Read-Host "Press ENTER after selecting the correct Azure subscription"
+
+
+# ------------------------------------------------------------
+# STEP 14 — Verify Azure account
+# ------------------------------------------------------------
+
+Write-Host ""
+Write-Host "STEP 14: Verifying Azure account..."
+Write-Host ""
+
+az account show --output table
+
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# STEP 15 — Build Azure AI Search index
+# ------------------------------------------------------------
+
+Write-Host "================================================"
+Write-Host "STEP 15: Build Azure AI Search vector index"
+Write-Host "================================================"
+Write-Host ""
+
+Write-Host "Source data:"
+Write-Host "data\3-product-info"
+
+Write-Host ""
+
+Write-Host "Running:"
+Write-Host "python src/run.py --build-index"
+
+Write-Host ""
+
+Read-Host "Press ENTER to build the index"
+
+python src/run.py --build-index
+
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# STEP 16 — First RAG question
+# ------------------------------------------------------------
+
+Write-Host "================================================"
+Write-Host "STEP 16: Run first RAG question"
+Write-Host "================================================"
+Write-Host ""
+
+python src/run.py --question "which tent is the most waterproof?"
+
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# STEP 17 — Test another question
+# ------------------------------------------------------------
+
+Write-Host "STEP 17: Testing another question..."
+Write-Host ""
+
+python src/run.py --question "What tent has the highest rainfly rating?"
+
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# STEP 18 — Test streaming
+# ------------------------------------------------------------
+
+Write-Host "================================================"
+Write-Host "STEP 18: Test streaming"
+Write-Host "================================================"
+Write-Host ""
+
+python src/run.py `
+    --question "which tent is the most waterproof?" `
+    --stream
+
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# STEP 19 — AI SDK implementation
+# ------------------------------------------------------------
+
+Write-Host "================================================"
+Write-Host "STEP 19: AI SDK implementation"
+Write-Host "================================================"
+Write-Host ""
+
+python src/run.py `
+    --question "which tent is the most waterproof?" `
+    --implementation aisdk
+
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# STEP 20 — LangChain implementation
+# ------------------------------------------------------------
+
+Write-Host "================================================"
+Write-Host "STEP 20: LangChain implementation"
+Write-Host "================================================"
+Write-Host ""
+
+python src/run.py `
+    --question "which tent is the most waterproof?" `
+    --implementation langchain
+
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# STEP 21 — Prompt Flow implementation
+# ------------------------------------------------------------
+
+Write-Host "================================================"
+Write-Host "STEP 21: Prompt Flow implementation"
+Write-Host "================================================"
+Write-Host ""
+
+Write-Host "IMPORTANT:"
+Write-Host "Check deployment names and index name in:"
+Write-Host ""
+Write-Host "src\copilot_promptflow\flow.dag.yaml"
+Write-Host ""
+
+Read-Host "Press ENTER after checking flow.dag.yaml"
+
+python src/run.py `
+    --question "which tent is the most waterproof?" `
+    --implementation promptflow
+
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# STEP 22 — Run AI SDK evaluation
+# ------------------------------------------------------------
+
+Write-Host "================================================"
+Write-Host "STEP 22: Evaluate AI SDK copilot"
+Write-Host "================================================"
+Write-Host ""
+
+python src/run.py `
+    --evaluate `
+    --implementation aisdk
+
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# STEP 23 — Run LangChain evaluation
+# ------------------------------------------------------------
+
+Write-Host "================================================"
+Write-Host "STEP 23: Evaluate LangChain copilot"
+Write-Host "================================================"
+Write-Host ""
+
+python src/run.py `
+    --evaluate `
+    --implementation langchain
+
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# STEP 24 — Run Prompt Flow evaluation
+# ------------------------------------------------------------
+
+Write-Host "================================================"
+Write-Host "STEP 24: Evaluate Prompt Flow copilot"
+Write-Host "================================================"
+Write-Host ""
+
+python src/run.py `
+    --evaluate `
+    --implementation promptflow
+
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# STEP 25 — Run repository tests
+# ------------------------------------------------------------
+
+Write-Host "================================================"
+Write-Host "STEP 25: Run pytest"
+Write-Host "================================================"
+Write-Host ""
+
+python -m pytest -q
+
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# STEP 26 — Deploy AI SDK copilot
+# ------------------------------------------------------------
+
+Write-Host "================================================"
+Write-Host "STEP 26: Deploy copilot"
+Write-Host "================================================"
+Write-Host ""
+
+Write-Host "The repository deploys the selected implementation."
+Write-Host "Default implementation: aisdk"
+Write-Host ""
+
+Read-Host "Press ENTER to deploy"
+
+python src/run.py `
+    --deploy `
+    --implementation aisdk
+
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# STEP 27 — Invoke deployed endpoint
+# ------------------------------------------------------------
+
+Write-Host "================================================"
+Write-Host "STEP 27: Invoke deployed endpoint"
+Write-Host "================================================"
+Write-Host ""
+
+python src/run.py `
+    --invoke-deployment
+
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# STEP 28 — Invoke deployed endpoint with streaming
+# ------------------------------------------------------------
+
+Write-Host "================================================"
+Write-Host "STEP 28: Invoke deployment with streaming"
+Write-Host "================================================"
+Write-Host ""
+
+python src/run.py `
+    --invoke-deployment `
+    --stream
+
+Write-Host ""
+
+
+# ------------------------------------------------------------
+# COMPLETE
+# ------------------------------------------------------------
+
+Write-Host ""
+Write-Host "================================================"
+Write-Host " HANDS-ON REPOSITORY SETUP COMPLETE"
+Write-Host "================================================"
+Write-Host ""
+
+Write-Host "You have completed:"
+Write-Host ""
+Write-Host "1. Python environment"
+Write-Host "2. Dependencies"
+Write-Host "3. Azure authentication"
+Write-Host "4. Environment configuration"
+Write-Host "5. Azure AI Search index"
+Write-Host "6. RAG question answering"
+Write-Host "7. AI SDK"
+Write-Host "8. LangChain"
+Write-Host "9. Prompt Flow"
+Write-Host "10. Evaluation"
+Write-Host "11. Testing"
+Write-Host "12. Deployment"
+Write-Host "13. Endpoint invocation"
+Write-Host ""
+
+Write-Host "================================================"
+1. Initial repository setup
+   └── .gitignore / environment documentation if needed
+
+2. Environment setup
+   └── dependency configuration
+
+3. Azure configuration
+   └── .env.example/config documentation
+   └── NEVER commit real secrets
+
+4. Azure AI Search index
+   └── index-building work
+
+5. AI SDK copilot
+   └── first working RAG implementation
+
+6. LangChain copilot
+   └── LangChain implementation
+
+7. Prompt Flow copilot
+   └── Prompt Flow implementation
+
+8. Evaluation
+   └── evaluation/tests/results
+
+9. Deployment
+   └── deployment changes
+
+10. Final README/documentation
+   └── complete project documentation
+git status
+git add .
+git commit -m "..."
+git push origin main
