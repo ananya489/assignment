@@ -1,801 +1,411 @@
-# Question 2 --- Kafka Topic and Producer
+1. Install Kafka Python library
 
-## Objective
+Run:
 
-Set up a Kafka environment and create a topic called:
-
-``` text
-server_metrics
-```
-
-The practical must:
-
-1.  Start the Kafka server/cluster.
-2.  Create the `server_metrics` topic.
-3.  Configure a Kafka producer.
-4.  Send at least 10 server metric messages.
-5.  Verify that the messages were successfully published.
-
-Each message contains:
-
-``` json
-{
-    "server_id": "server01",
-    "cpu_usage": 82,
-    "memory_usage": 65
-}
-```
-
-------------------------------------------------------------------------
-
-# 1. Prerequisites
-
-You need:
-
--   Java
--   Apache Kafka
--   Python
--   `kafka-python`
-
-Check Java:
-
-``` bash
-java -version
-```
-
-Check Python:
-
-``` bash
-python --version
-```
-
-Install the Python Kafka library:
-
-``` bash
 python -m pip install kafka-python
-```
 
-On Windows, if `python` does not work:
+Check:
 
-``` bash
-py -m pip install kafka-python
-```
+python -c "import kafka; print(kafka.__version__)"
+2. Start Kafka
 
-------------------------------------------------------------------------
+If you're using your existing Windows Kafka setup:
 
-# 2. Kafka Folder
-
-Assume Kafka is extracted somewhere such as:
-
-``` text
-C:\kafka
-```
-
-Open a terminal in the Kafka directory:
-
-``` bat
-cd C:\kafka
-```
-
-Your Kafka directory should contain folders similar to:
-
-``` text
-bin
-config
-libs
-```
-
-On Windows, Kafka command files are normally inside:
-
-``` text
-bin\windows
-```
-
-------------------------------------------------------------------------
-
-# 3. Start Kafka
-
-There are two common Kafka setups.
-
-## Option A --- ZooKeeper-based Kafka
-
-If your Kafka installation contains:
-
-``` text
-config\zookeeper.properties
-config\server.properties
-```
-
-start ZooKeeper first.
-
-### Terminal 1 --- ZooKeeper
-
-``` bat
+Terminal 1 — ZooKeeper
 cd C:\kafka
 bin\windows\zookeeper-server-start.bat config\zookeeper.properties
-```
 
-Keep this terminal running.
+Keep this terminal open.
 
-------------------------------------------------------------------------
-
-### Terminal 2 --- Kafka Broker
-
-Open another terminal:
-
-``` bat
+Terminal 2 — Kafka Broker
 cd C:\kafka
 bin\windows\kafka-server-start.bat config\server.properties
-```
 
-Keep this terminal running.
+Keep this terminal open.
 
-The Kafka broker should now be available at:
+Kafka should now be available at:
 
-``` text
 localhost:9092
-```
+3. topic.py
 
-------------------------------------------------------------------------
+Create:
 
-# 4. Create the Kafka Topic
+topic.py
 
-Open a third terminal.
+Use:
 
-Run:
-
-``` bat
-cd C:\kafka
-```
-
-Create the required topic:
-
-``` bat
-bin\windows\kafka-topics.bat --create --topic server_metrics --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
-```
-
-Expected output will be similar to:
-
-``` text
-Created topic server_metrics.
-```
-
-The important part is:
-
-``` text
-server_metrics
-```
-
-------------------------------------------------------------------------
-
-# 5. Verify the Topic
-
-Run:
-
-``` bat
-bin\windows\kafka-topics.bat --list --bootstrap-server localhost:9092
-```
-
-Expected:
-
-``` text
-server_metrics
-```
-
-You can also inspect the topic:
-
-``` bat
-bin\windows\kafka-topics.bat --describe --topic server_metrics --bootstrap-server localhost:9092
-```
-
-You should see information about:
-
--   Topic
--   Partition
--   Leader
--   Replicas
--   ISR
-
-For a single-broker practical setup, one partition and replication
-factor 1 are sufficient.
-
-------------------------------------------------------------------------
-
-# 6. Create the Python Producer
-
-Create a file:
-
-``` text
-kafka_producer.py
-```
-
-Use this complete code:
-
-``` python
-import json
-from kafka import KafkaProducer
+from kafka.admin import KafkaAdminClient, NewTopic
+from kafka.errors import TopicAlreadyExistsError
 
 
-# ============================================================
-# CONFIGURATION
-# ============================================================
-
-BOOTSTRAP_SERVER = "localhost:9092"
-TOPIC = "server_metrics"
-
-
-# ============================================================
-# CREATE KAFKA PRODUCER
-# ============================================================
-
-producer = KafkaProducer(
-    bootstrap_servers=BOOTSTRAP_SERVER,
-
-    value_serializer=lambda value:
-        json.dumps(value).encode("utf-8")
+# Connect to Kafka
+admin = KafkaAdminClient(
+    bootstrap_servers="localhost:9092"
 )
 
 
-# ============================================================
-# SERVER METRIC MESSAGES
-# ============================================================
+# Create topic
+topic = NewTopic(
+    name="server_metrics",
+    num_partitions=1,
+    replication_factor=1
+)
 
-messages = [
-    {
-        "server_id": "server01",
-        "cpu_usage": 82,
-        "memory_usage": 65
-    },
-    {
-        "server_id": "server02",
-        "cpu_usage": 45,
-        "memory_usage": 55
-    },
-    {
-        "server_id": "server03",
-        "cpu_usage": 91,
-        "memory_usage": 70
-    },
-    {
-        "server_id": "server04",
-        "cpu_usage": 60,
-        "memory_usage": 50
-    },
-    {
-        "server_id": "server05",
-        "cpu_usage": 75,
-        "memory_usage": 68
-    },
-    {
-        "server_id": "server06",
-        "cpu_usage": 88,
-        "memory_usage": 72
-    },
-    {
-        "server_id": "server07",
-        "cpu_usage": 40,
-        "memory_usage": 45
-    },
-    {
-        "server_id": "server08",
-        "cpu_usage": 95,
-        "memory_usage": 80
-    },
-    {
-        "server_id": "server09",
-        "cpu_usage": 55,
-        "memory_usage": 52
-    },
-    {
-        "server_id": "server10",
-        "cpu_usage": 85,
-        "memory_usage": 63
+
+try:
+
+    admin.create_topics(
+        new_topics=[topic]
+    )
+
+    print("Topic created successfully!")
+
+except TopicAlreadyExistsError:
+
+    print("Topic already exists!")
+
+
+admin.close()
+
+The TopicAlreadyExistsError handling is useful because if you run the file a second time, your program won't crash just because the topic already exists.
+
+4. Producer.py
+
+Create:
+
+Producer.py
+
+Use your requested producer:
+
+from kafka import KafkaProducer
+import json
+import time
+
+
+# Create Kafka producer
+producer = KafkaProducer(
+
+    bootstrap_servers="localhost:9092",
+
+    value_serializer=lambda x:
+        json.dumps(x).encode("utf-8")
+)
+
+
+# Send 10 messages
+for i in range(10):
+
+    message = {
+
+        "server_id": f"server{i+1}",
+
+        "cpu_usage": 50 + i * 4,
+
+        "memory_usage": 60 + i
     }
-]
 
 
-# ============================================================
-# SEND MESSAGES
-# ============================================================
-
-print("\n========================================")
-print("       Kafka Server Metrics Producer")
-print("========================================")
-
-print(f"Broker : {BOOTSTRAP_SERVER}")
-print(f"Topic  : {TOPIC}")
-
-print("\nSending messages...\n")
-
-
-for message in messages:
-
-    future = producer.send(
-        TOPIC,
+    producer.send(
+        "server_metrics",
         value=message
     )
 
-    # Wait for Kafka acknowledgement
-    metadata = future.get(timeout=10)
 
-    print(
-        f"Sent: {message}"
-    )
+    print("Sent:", message)
 
-    print(
-        f"Partition: {metadata.partition} "
-        f"| Offset: {metadata.offset}"
-    )
-
-    print()
+    time.sleep(1)
 
 
 # Make sure all messages are sent
 producer.flush()
 
-# Close producer
 producer.close()
 
+print("\n10 messages sent successfully!")
 
-print("========================================")
-print("10 messages successfully published.")
-print("========================================")
-```
+This produces:
 
-------------------------------------------------------------------------
+server1  CPU 50
+server2  CPU 54
+server3  CPU 58
+server4  CPU 62
+server5  CPU 66
+server6  CPU 70
+server7  CPU 74
+server8  CPU 78
+server9  CPU 82
+server10 CPU 86
 
-# 7. Run the Producer
+So 10 messages are sent.
 
-Make sure Kafka is still running.
+5. consumer.py
 
-From the directory containing `kafka_producer.py`, run:
+Create:
 
-``` bash
-python kafka_producer.py
-```
+consumer.py
 
-On Windows:
+Use:
 
-``` bash
-py kafka_producer.py
-```
+from kafka import KafkaConsumer
+import json
 
-Expected output:
 
-``` text
-========================================
-       Kafka Server Metrics Producer
-========================================
+# Create Kafka consumer
+consumer = KafkaConsumer(
 
-Broker : localhost:9092
-Topic  : server_metrics
+    "server_metrics",
 
-Sending messages...
+    bootstrap_servers="localhost:9092",
 
-Sent: {'server_id': 'server01', 'cpu_usage': 82, 'memory_usage': 65}
-Partition: 0 | Offset: 0
+    auto_offset_reset="earliest",
 
-Sent: {'server_id': 'server02', 'cpu_usage': 45, 'memory_usage': 55}
-Partition: 0 | Offset: 1
+    enable_auto_commit=True,
 
-Sent: {'server_id': 'server03', 'cpu_usage': 91, 'memory_usage': 70}
-Partition: 0 | Offset: 2
+    group_id="aiops-monitor",
 
-...
+    value_deserializer=lambda value:
+        json.loads(value.decode("utf-8"))
+)
 
-Sent: {'server_id': 'server10', 'cpu_usage': 85, 'memory_usage': 63}
-Partition: 0 | Offset: 9
 
-========================================
-10 messages successfully published.
-========================================
-```
+print("Waiting for messages...")
 
-The offsets confirm that Kafka acknowledged the messages.
 
-------------------------------------------------------------------------
+# Continuously consume messages
+for message in consumer:
 
-# 8. Verify Messages Were Published
+    data = message.value
 
-This is an important part of the question.
+    server = data["server_id"]
 
-Use Kafka's console consumer.
+    cpu = data["cpu_usage"]
 
-Open another terminal:
+    memory = data["memory_usage"]
 
-``` bat
-cd C:\kafka
-```
+
+    print("\nReceived:")
+
+    print("Server:", server)
+
+    print("CPU:", cpu, "%")
+
+    print("Memory:", memory, "%")
+
+
+    # High CPU detection
+    if cpu > 80:
+
+        print(
+            "ALERT: High CPU detected on",
+            server
+        )
+
+This consumer is also useful for Question 3, because it already checks:
+
+if cpu > 80:
+6. Execute in the Correct Order
+
+You need three additional terminals after Kafka is running.
+
+Your setup will look like:
+
+Terminal 1
+    ↓
+ZooKeeper
+
+Terminal 2
+    ↓
+Kafka Broker
+
+Terminal 3
+    ↓
+topic.py
+
+Terminal 4
+    ↓
+consumer.py
+
+Terminal 5
+    ↓
+Producer.py
+Terminal 3 — Create Topic
+
+Go to your Python project folder:
+
+cd path\to\aiops_kafka
 
 Run:
 
-``` bat
-bin\windows\kafka-console-consumer.bat --topic server_metrics --from-beginning --bootstrap-server localhost:9092
-```
-
-You should see the messages:
-
-``` json
-{"server_id": "server01", "cpu_usage": 82, "memory_usage": 65}
-{"server_id": "server02", "cpu_usage": 45, "memory_usage": 55}
-{"server_id": "server03", "cpu_usage": 91, "memory_usage": 70}
-{"server_id": "server04", "cpu_usage": 60, "memory_usage": 50}
-{"server_id": "server05", "cpu_usage": 75, "memory_usage": 68}
-{"server_id": "server06", "cpu_usage": 88, "memory_usage": 72}
-{"server_id": "server07", "cpu_usage": 40, "memory_usage": 45}
-{"server_id": "server08", "cpu_usage": 95, "memory_usage": 80}
-{"server_id": "server09", "cpu_usage": 55, "memory_usage": 52}
-{"server_id": "server10", "cpu_usage": 85, "memory_usage": 63}
-```
-
-This proves that the producer successfully published the messages to:
-
-``` text
-server_metrics
-```
-
-Press:
-
-``` text
-CTRL + C
-```
-
-to stop the console consumer.
-
-------------------------------------------------------------------------
-
-# 9. Complete Practical Command Sequence
-
-Use these commands in this order.
-
-## Terminal 1 --- Start ZooKeeper
-
-``` bat
-cd C:\kafka
-bin\windows\zookeeper-server-start.bat config\zookeeper.properties
-```
-
-Keep it running.
-
-------------------------------------------------------------------------
-
-## Terminal 2 --- Start Kafka
-
-``` bat
-cd C:\kafka
-bin\windows\kafka-server-start.bat config\server.properties
-```
-
-Keep it running.
-
-------------------------------------------------------------------------
-
-## Terminal 3 --- Create Topic
-
-``` bat
-cd C:\kafka
-bin\windows\kafka-topics.bat --create --topic server_metrics --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
-```
-
-Verify:
-
-``` bat
-bin\windows\kafka-topics.bat --list --bootstrap-server localhost:9092
-```
+python topic.py
 
 Expected:
 
-``` text
-server_metrics
-```
+Topic created successfully!
 
-------------------------------------------------------------------------
+If you already created it:
 
-## Terminal 4 --- Run Python Producer
+Topic already exists!
 
-Install the library once:
+Both are fine.
 
-``` bash
-python -m pip install kafka-python
-```
+7. Verify Topic
 
-Then:
+Before running the producer, you can verify the topic.
 
-``` bash
-python kafka_producer.py
-```
-
-------------------------------------------------------------------------
-
-## Terminal 5 --- Verify Messages
-
-``` bat
 cd C:\kafka
-bin\windows\kafka-console-consumer.bat --topic server_metrics --from-beginning --bootstrap-server localhost:9092
-```
+bin\windows\kafka-topics.bat --list --bootstrap-server localhost:9092
 
-You should see all 10 messages.
+You should see:
 
-------------------------------------------------------------------------
+server_metrics
 
-# 10. If You Are Using Kafka in WSL/Linux
+You can also check its configuration:
 
-The Python producer code does not change.
-
-The Kafka commands change from:
-
-``` text
-bin\windows\...
-```
-
-to:
-
-``` text
-bin/...
-```
-
-For example:
-
-### Start ZooKeeper
-
-``` bash
-bin/zookeeper-server-start.sh config/zookeeper.properties
-```
-
-### Start Kafka
-
-``` bash
-bin/kafka-server-start.sh config/server.properties
-```
-
-### Create topic
-
-``` bash
-bin/kafka-topics.sh --create \
-    --topic server_metrics \
-    --bootstrap-server localhost:9092 \
-    --partitions 1 \
-    --replication-factor 1
-```
-
-### List topics
-
-``` bash
-bin/kafka-topics.sh --list \
-    --bootstrap-server localhost:9092
-```
-
-### Verify messages
-
-``` bash
-bin/kafka-console-consumer.sh \
-    --topic server_metrics \
-    --from-beginning \
-    --bootstrap-server localhost:9092
-```
-
-------------------------------------------------------------------------
-
-# 11. If Your Kafka Version Uses KRaft
-
-Newer Kafka installations can run without ZooKeeper using KRaft.
-
-If your Kafka setup provides a KRaft configuration such as:
-
-``` text
-config/kraft/server.properties
-```
-
-the setup is different.
-
-First generate a cluster ID:
-
-``` bash
-bin/kafka-storage.sh random-uuid
-```
-
-Format the storage:
-
-``` bash
-bin/kafka-storage.sh format -t <CLUSTER_ID> -c config/kraft/server.properties
-```
-
-Then start Kafka:
-
-``` bash
-bin/kafka-server-start.sh config/kraft/server.properties
-```
-
-On Windows, use the corresponding `.bat` files:
-
-``` bat
-bin\windows\kafka-storage.bat random-uuid
-```
-
-and:
-
-``` bat
-bin\windows\kafka-storage.bat format -t <CLUSTER_ID> -c config\kraft\server.properties
-```
-
-Then:
-
-``` bat
-bin\windows\kafka-server-start.bat config\kraft\server.properties
-```
-
-For the exam, use whichever Kafka setup your installed environment
-already uses.
-
-------------------------------------------------------------------------
-
-# 12. Troubleshooting
-
-## Error: Connection refused
-
-Example:
-
-``` text
-NoBrokersAvailable
-```
-
-Check that Kafka is running:
-
-``` text
-localhost:9092
-```
-
-Start the broker before running the Python producer.
-
-------------------------------------------------------------------------
-
-## Error: No module named kafka
+bin\windows\kafka-topics.bat --describe --topic server_metrics --bootstrap-server localhost:9092
+8. Terminal 4 — Start Consumer
 
 Run:
 
-``` bash
+python consumer.py
+
+You should see:
+
+Waiting for messages...
+
+The consumer will wait for Kafka messages.
+
+Do not close this terminal.
+
+9. Terminal 5 — Run Producer
+
+Run:
+
+python Producer.py
+
+Expected:
+
+Sent: {'server_id': 'server1', 'cpu_usage': 50, 'memory_usage': 60}
+
+Sent: {'server_id': 'server2', 'cpu_usage': 54, 'memory_usage': 61}
+
+Sent: {'server_id': 'server3', 'cpu_usage': 58, 'memory_usage': 62}
+
+...
+
+Until:
+
+Sent: {'server_id': 'server10', 'cpu_usage': 86, 'memory_usage': 69}
+
+10 messages sent successfully!
+10. Consumer Output
+
+At the same time, the consumer will receive the messages.
+
+For example:
+
+Received:
+Server: server1
+CPU: 50 %
+Memory: 60 %
+
+For server9:
+
+Received:
+Server: server9
+CPU: 82 %
+Memory: 68 %
+
+ALERT: High CPU detected on server9
+
+For server10:
+
+Received:
+Server: server10
+CPU: 86 %
+Memory: 69 %
+
+ALERT: High CPU detected on server10
+
+Because:
+
+82 > 80
+86 > 80
+11. Verify Published Messages Directly
+
+You can also verify the messages using Kafka's console consumer.
+
+Open another terminal:
+
+cd C:\kafka
+
+Run:
+
+bin\windows\kafka-console-consumer.bat --topic server_metrics --from-beginning --bootstrap-server localhost:9092
+
+You should see:
+
+{"server_id":"server1","cpu_usage":50,"memory_usage":60}
+{"server_id":"server2","cpu_usage":54,"memory_usage":61}
+{"server_id":"server3","cpu_usage":58,"memory_usage":62}
+{"server_id":"server4","cpu_usage":62,"memory_usage":63}
+{"server_id":"server5","cpu_usage":66,"memory_usage":64}
+{"server_id":"server6","cpu_usage":70,"memory_usage":65}
+{"server_id":"server7","cpu_usage":74,"memory_usage":66}
+{"server_id":"server8","cpu_usage":78,"memory_usage":67}
+{"server_id":"server9","cpu_usage":82,"memory_usage":68}
+{"server_id":"server10","cpu_usage":86,"memory_usage":69}
+
+This directly proves that the producer published the messages to:
+
+server_metrics
+12. Complete Execution Commands
+Install library
 python -m pip install kafka-python
-```
-
-Then verify:
-
-``` bash
-python -c "import kafka; print(kafka.__version__)"
-```
-
-------------------------------------------------------------------------
-
-## Topic already exists
-
-If you see:
-
-``` text
-Topic 'server_metrics' already exists
-```
-
-that is not a problem.
-
-Verify it:
-
-``` bat
+Start ZooKeeper
+cd C:\kafka
+bin\windows\zookeeper-server-start.bat config\zookeeper.properties
+Start Kafka
+cd C:\kafka
+bin\windows\kafka-server-start.bat config\server.properties
+Create topic
+python topic.py
+Verify topic
 bin\windows\kafka-topics.bat --list --bootstrap-server localhost:9092
-```
+Start consumer
+python consumer.py
+Start producer
+python Producer.py
+Verify messages
+bin\windows\kafka-console-consumer.bat --topic server_metrics --from-beginning --bootstrap-server localhost:9092
+13. Final Flow for Question 2
+                  Kafka Cluster
+                       │
+                       ↓
+              localhost:9092
+                       │
+                       ↓
+              ┌────────────────┐
+              │ server_metrics │
+              │     Topic      │
+              └───────┬────────┘
+                      ↑
+                      │
+                Producer.py
+                      │
+              10 JSON messages
+                      │
+                      ↓
+                Consumer.py
+                      │
+                      ↓
+              Display metrics
+Files you need
+topic.py
+Producer.py
+consumer.py
+Most important commands
+python topic.py
+python consumer.py
+python Producer.py
 
-If it shows:
-
-``` text
-server_metrics
-```
-
-continue with the producer.
-
-------------------------------------------------------------------------
-
-# 13. What Each Part Demonstrates
-
-``` text
-Kafka Cluster
-      ↓
-Kafka Broker
-      ↓
-server_metrics Topic
-      ↓
-Python Producer
-      ↓
-10 JSON Messages
-      ↓
-Kafka Partition
-      ↓
-Console Consumer
-      ↓
-Verify Messages
-```
-
-The Python producer uses:
-
-``` python
-producer.send(
-    TOPIC,
-    value=message
-)
-```
-
-The JSON serializer converts the Python dictionary into JSON bytes:
-
-``` python
-value_serializer=lambda value:
-    json.dumps(value).encode("utf-8")
-```
-
-The producer waits for Kafka acknowledgement:
-
-``` python
-metadata = future.get(timeout=10)
-```
-
-This gives you the partition and offset, which helps demonstrate that
-Kafka accepted the message.
-
-------------------------------------------------------------------------
-
-# 14. Exam Answer --- Short Explanation
-
-> First, start the Kafka broker and create the `server_metrics` topic.
-> Then configure a Python `KafkaProducer` using `localhost:9092`. The
-> producer sends 10 JSON messages containing `server_id`, `cpu_usage`,
-> and `memory_usage`. Finally, use the Kafka console consumer with
-> `--from-beginning` to verify that all messages were successfully
-> published to the topic.
-
-------------------------------------------------------------------------
-
-# 15. Quick Revision
-
-### Topic
-
-``` text
-server_metrics
-```
-
-### Broker
-
-``` text
-localhost:9092
-```
-
-### Producer
-
-``` python
-KafkaProducer(...)
-```
-
-### Send
-
-``` python
-producer.send(
-    "server_metrics",
-    value=message
-)
-```
-
-### Verify
-
-``` bat
-kafka-console-consumer.bat --topic server_metrics --from-beginning --bootstrap-server localhost:9092
-```
-
-### Required message
-
-``` json
-{
-    "server_id": "server01",
-    "cpu_usage": 82,
-    "memory_usage": 65
-}
-```
-
-### Required number of messages
-
-``` text
-10
-```
+For the actual Question 2 requirement, topic.py + Producer.py + Kafka console consumer verification are the essential parts. Your consumer.py is useful for the next question and also demonstrates that the published metrics can be consumed.
