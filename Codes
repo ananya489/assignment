@@ -78,3 +78,17 @@ admin.close()
 
 producer.flush()
 producer.close()
+
+
+# Check the current status
+git status
+
+# Add all files
+git add .
+
+# Commit your changes
+git commit -m "your commit message"
+
+# Push code to GitHub
+git push
+git push -u origin main
