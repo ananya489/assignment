@@ -1,0 +1,80 @@
+Producer.py:
+from kafka import KafkaProducer
+import json
+import time
+
+producer = KafkaProducer(
+    bootstrap_servers="localhost:9092",
+    value_serializer=lambda x: json.dumps(x).encode("utf-8")
+)
+
+for i in range(10):
+
+    message = {
+        "server_id": f"server{i+1}",
+        "cpu_usage": 50 + i * 4,
+        "memory_usage": 60 + i
+    }
+
+    producer.send(
+        "server_metrics",
+        value=message
+    )
+
+    print("Sent:", message)
+
+    time.sleep(1)
+
+
+consumer .py:
+from kafka import KafkaConsumer
+import json
+
+consumer = KafkaConsumer(
+    "server_metrics",
+    bootstrap_servers="localhost:9092",
+    auto_offset_reset="earliest",
+    enable_auto_commit=True,
+    group_id="aiops-monitor",
+    value_deserializer=lambda value: json.loads(value.decode("utf-8"))
+)
+
+print("Waiting for messages...")
+
+for message in consumer:
+
+    data = message.value
+
+    server = data["server_id"]
+    cpu = data["cpu_usage"]
+    memory = data["memory_usage"]
+
+    print("\nReceived:")
+    print("Server:", server)
+    print("CPU:", cpu, "%")
+    print("Memory:", memory, "%")
+
+    if cpu > 80:
+        print("ALERT: High CPU detected on", server)
+
+topic.py:
+from kafka.admin import KafkaAdminClient, NewTopic
+
+admin = KafkaAdminClient(
+    bootstrap_servers="localhost:9092"
+)
+
+topic = NewTopic(
+    name="server_metrics",
+    num_partitions=1,
+    replication_factor=1
+)
+
+admin.create_topics(new_topics=[topic])
+
+print("Topic created successfully!")
+
+admin.close()
+
+producer.flush()
+producer.close()
